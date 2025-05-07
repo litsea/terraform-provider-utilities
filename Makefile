@@ -16,7 +16,10 @@ generate: check-go
 vet: check-go
 lint: check-golangci-lint
 test: check-go
+testacc: check-go
 lint-fix: check-golangci-lint
+build: check-go
+install: check-go
 
 .PHONY: update
 update: ## Update go.mod
@@ -39,12 +42,23 @@ lint: ## Run test
 test: ## Run test
 	go test -race ./...
 
+testacc: ## Run testacc
+	TF_ACC=1 go test -v -cover -timeout 120m ./...
+
 .PHONY: lint-fix
 lint-fix: ## Auto lint fix
 	golangci-lint run --fix ./...
 
 .PHONY: ci
 ci: vet lint test ## Run CI (vet, lint, test)
+
+.PHONY: build
+build: ## Build the binary
+	go build -v ./...
+
+.PHONY: install
+install: build ## Install the binary
+	go install -v ./...
 
 ## Help display.
 ## Pulls comments from beside commands and prints a nicely formatted
