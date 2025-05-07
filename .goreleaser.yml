@@ -44,10 +44,6 @@ builds:
       - goos: darwin
         goarch: '386'
 
-# Include a changelog or not
-changelog:
-  skip: true
-
 # Checksum and signing configuration
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
