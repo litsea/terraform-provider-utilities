@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -34,15 +35,15 @@ func (r *fileResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 		Attributes: map[string]schema.Attribute{
 			"url": schema.StringAttribute{
 				Required:    true,
-				Description: "URL to download the file from.",
+				Description: "The full HTTP or HTTPS URL to download the file from.",
 			},
-			"path": schema.StringAttribute{
+			"filename": schema.StringAttribute{
 				Required:    true,
-				Description: "Local path to save the downloaded file.",
+				Description: "Local filename where the downloaded file will be saved.",
 			},
 			"method": schema.StringAttribute{
 				Optional:    true,
-				Description: "HTTP method to use (default: GET). Only GET and POST are allowed.",
+				Description: "HTTP method to use for the request (default: GET). Only 'GET' and 'POST' are allowed.",
 				Validators: []validator.String{
 					stringvalidator.OneOf("GET", "POST"),
 				},
@@ -50,7 +51,20 @@ func (r *fileResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"headers": schema.MapAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
-				Description: "Custom headers to include in the request.",
+				Description: "Map of custom HTTP headers to include in the request. The map key is the header name, and the value is the header content.",
+				Sensitive:   true,
+			},
+			"id": schema.StringAttribute{
+				Computed:    true,
+				Description: "The hexadecimal encoding of the SHA1 checksum of the downloaded file content.",
+			},
+			"sha1": schema.StringAttribute{
+				Description: "SHA1 checksum of file content.",
+				Computed:    true,
+			},
+			"sha256": schema.StringAttribute{
+				Description: "SHA256 checksum of file content.",
+				Computed:    true,
 			},
 		},
 	}
@@ -76,59 +90,89 @@ func (r *fileResource) Create(ctx context.Context, req resource.CreateRequest, r
 		}
 	}
 
-	err := downloadFile(method, plan.URL.ValueString(), plan.Path.ValueString(), headers)
+	checksums, err := downloadFile(method, plan.URL.ValueString(), plan.Filename.ValueString(), headers)
 	if err != nil {
 		resp.Diagnostics.AddError("Download Failed", err.Error())
 		return
 	}
+
+	plan.ID = types.StringValue(checksums.sha1Hex)
+	plan.Sha1 = types.StringValue(checksums.sha1Hex)
+	plan.Sha256 = types.StringValue(checksums.sha256Hex)
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *fileResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	// No-op: not reading remote status
-}
-
-func (r *fileResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan fileResourceModel
-	diags := req.Plan.Get(ctx, &plan)
+	var state fileResourceModel
+	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	outputPath := state.Filename.ValueString()
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	method := "GET"
-	if !plan.Method.IsNull() && plan.Method.ValueString() != "" {
-		method = strings.ToUpper(plan.Method.ValueString())
+	if !state.Method.IsNull() && state.Method.ValueString() != "" {
+		method = strings.ToUpper(state.Method.ValueString())
 	}
 
 	headers := make(map[string]string)
-	for k, v := range plan.Headers.Elements() {
+	for k, v := range state.Headers.Elements() {
 		if strVal, ok := v.(types.String); ok {
 			headers[k] = strVal.ValueString()
 		}
 	}
 
-	err := downloadFile(method, plan.URL.ValueString(), plan.Path.ValueString(), headers)
+	checksums, err := downloadFile(method, state.URL.ValueString(), state.Filename.ValueString(), headers)
 	if err != nil {
 		resp.Diagnostics.AddError("Download Failed", err.Error())
 		return
 	}
+
+	if checksums.sha1Hex != state.ID.ValueString() {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+}
+
+func (r *fileResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan fileResourceModel
+
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *fileResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// Optional: delete the downloaded file if needed
+	var filename string
+	req.State.GetAttribute(ctx, path.Root("filename"), &filename)
+	os.Remove(filename)
 }
 
 type fileResourceModel struct {
-	URL     types.String `tfsdk:"url"`
-	Path    types.String `tfsdk:"path"`
-	Method  types.String `tfsdk:"method"`
-	Headers types.Map    `tfsdk:"headers"`
+	URL      types.String `tfsdk:"url"`
+	Filename types.String `tfsdk:"filename"`
+	Method   types.String `tfsdk:"method"`
+	Headers  types.Map    `tfsdk:"headers"`
+	ID       types.String `tfsdk:"id"`
+	Sha1     types.String `tfsdk:"sha1"`
+	Sha256   types.String `tfsdk:"sha256"`
 }
 
-func downloadFile(method, url, filepath string, headers map[string]string) error {
+func downloadFile(method, url, filepath string, headers map[string]string) (*fileChecksums, error) {
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for k, v := range headers {
@@ -138,20 +182,27 @@ func downloadFile(method, url, filepath string, headers map[string]string) error
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return errors.New("failed to download file: " + resp.Status)
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to download file: " + resp.Status)
 	}
 
 	out, err := os.Create(filepath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, resp.Body)
-	return err
+	bs, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	checksums := genFileChecksums(bs)
+	_, err = out.Write(bs)
+
+	return checksums, err
 }

@@ -40,8 +40,9 @@ lint: ## Run test
 
 .PHONY: test
 test: ## Run test
-	go test -race ./...
+	go test -v -cover -timeout=120s -parallel=10 ./...
 
+.PHONY: testacc
 testacc: ## Run testacc
 	TF_ACC=1 go test -v -cover -timeout 120m ./...
 
@@ -50,14 +51,14 @@ lint-fix: ## Auto lint fix
 	golangci-lint run --fix ./...
 
 .PHONY: ci
-ci: vet lint test ## Run CI (vet, lint, test)
+ci: vet lint test testacc ## Run CI (vet, lint, test)
 
 .PHONY: build
 build: ## Build the binary
-	go build -v ./...
+	go build -v .
 
 .PHONY: install
-install: build ## Install the binary
+install: ## Install the binary
 	go install -v ./...
 
 ## Help display.

@@ -13,8 +13,8 @@ Resource to download a remote file via HTTP(S) using GET or POST, optionally wit
 
 ```terraform
 resource "filedownloader_file" "example" {
-  url  = "https://example.com/file.zip"
-  path = "${path.module}/file.zip"
+  url      = "https://example.com/file.zip"
+  filename = "${path.module}/file.zip"
 
   headers = {
     Authorization = "Bearer token"
@@ -27,10 +27,16 @@ resource "filedownloader_file" "example" {
 
 ### Required
 
-- `path` (String) Local path to save the downloaded file.
-- `url` (String) URL to download the file from.
+- `filename` (String) Local filename where the downloaded file will be saved.
+- `url` (String) The full HTTP or HTTPS URL to download the file from.
 
 ### Optional
 
-- `headers` (Map of String) Custom headers to include in the request.
-- `method` (String) HTTP method to use (default: GET). Only GET and POST are allowed.
+- `headers` (Map of String, Sensitive) Map of custom HTTP headers to include in the request. The map key is the header name, and the value is the header content.
+- `method` (String) HTTP method to use for the request (default: GET). Only 'GET' and 'POST' are allowed.
+
+### Read-Only
+
+- `id` (String) The hexadecimal encoding of the SHA1 checksum of the downloaded file content.
+- `sha1` (String) SHA1 checksum of file content.
+- `sha256` (String) SHA256 checksum of file content.

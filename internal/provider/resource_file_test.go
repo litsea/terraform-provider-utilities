@@ -4,67 +4,171 @@
 package provider
 
 import (
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestDownloadFile_GET(t *testing.T) {
+func TestFileResource_GET(t *testing.T) {
+	want := []byte(testRandString(32))
 	// Setup mock server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "GET", r.Method)
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("hello world"))
+		_, _ = w.Write(want)
 	}))
 	defer ts.Close()
 
-	// Create temp file path
-	filePath := "./test_output.txt"
-	defer os.Remove(filePath)
+	sha1Sum := sha1.Sum(want)
+	sha1Hex := hex.EncodeToString(sha1Sum[:])
+	sha256Sum := sha256.Sum256(want)
+	sha256Hex := hex.EncodeToString(sha256Sum[:])
 
-	err := downloadFile("GET", ts.URL, filePath, map[string]string{})
-	require.NoError(t, err)
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: protoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+					resource "filedownloader_file" "file_test" {
+						url = "%s"
+						filename = "test_output.txt"
+					}`, ts.URL),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("filedownloader_file.file_test", "id", sha1Hex),
+					resource.TestCheckResourceAttr("filedownloader_file.file_test", "sha1", sha1Hex),
+					resource.TestCheckResourceAttr("filedownloader_file.file_test", "sha256", sha256Hex),
+					resource.TestCheckResourceAttr("filedownloader_file.file_test", "filename", "test_output.txt"),
+					resource.TestCheckResourceAttrWith("filedownloader_file.file_test", "filename", func(value string) error {
+						got, err := os.ReadFile(value)
+						if err != nil {
+							return err
+						}
+						assert.Equal(t, want, got)
+						return nil
+					}),
+				),
+			},
+			{
+				Config: fmt.Sprintf(`
+					resource "filedownloader_file" "file_test2" {
+						url = "%s"
+						method = "POST"
+						filename = "test_output2.txt"
 
-	content, err := os.ReadFile(filePath)
-	require.NoError(t, err)
-	require.Equal(t, "hello world", string(content))
-}
-
-func TestDownloadFile_POST_WithHeaders(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "POST", r.Method)
-		require.Equal(t, "Bearer xyz", r.Header.Get("Authorization"))
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("posted"))
-	}))
-	defer ts.Close()
-
-	filePath := "./test_post_output.txt"
-	defer os.Remove(filePath)
-
-	err := downloadFile("POST", ts.URL, filePath, map[string]string{
-		"Authorization": "Bearer xyz",
+					}`, ts.URL),
+				ExpectError: regexp.MustCompile(`failed to download file: 405 Method Not Allowed`),
+			},
+		},
 	})
-	require.NoError(t, err)
-
-	content, err := os.ReadFile(filePath)
-	require.NoError(t, err)
-	require.Equal(t, "posted", string(content))
 }
 
-func TestDownloadFile_Failure(t *testing.T) {
+func TestFileResource_POST_WithHeaders(t *testing.T) {
+	want := []byte(testRandString(32))
+	// Setup mock server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		if r.Header.Get("Authorization") != "Bearer xyz" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(want)
+	}))
+	defer ts.Close()
+
+	sha1Sum := sha1.Sum(want)
+	sha1Hex := hex.EncodeToString(sha1Sum[:])
+	sha256Sum := sha256.Sum256(want)
+	sha256Hex := hex.EncodeToString(sha256Sum[:])
+
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: protoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+					resource "filedownloader_file" "file_post_test" {
+						url = "%s"
+						method = "POST"
+						filename = "test_post_output.txt"
+						headers = {
+							Authorization = "Bearer xyz"
+						}
+					}`, ts.URL),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("filedownloader_file.file_post_test", "id", sha1Hex),
+					resource.TestCheckResourceAttr("filedownloader_file.file_post_test", "sha1", sha1Hex),
+					resource.TestCheckResourceAttr("filedownloader_file.file_post_test", "sha256", sha256Hex),
+					resource.TestCheckResourceAttr("filedownloader_file.file_post_test", "filename", "test_post_output.txt"),
+					resource.TestCheckResourceAttrWith("filedownloader_file.file_post_test", "filename", func(value string) error {
+						got, err := os.ReadFile(value)
+						if err != nil {
+							return err
+						}
+						assert.Equal(t, want, got)
+						return nil
+					}),
+				),
+			},
+			{
+				Config: fmt.Sprintf(`
+					resource "filedownloader_file" "file_post_test2" {
+						url = "%s"
+						method = "POST"
+						filename = "test_post_output2.txt"
+						headers = {
+							Authorization = "Bearer abc"
+						}
+					}`, ts.URL),
+				ExpectError: regexp.MustCompile(`failed to download file: 401 Unauthorized`),
+			},
+		},
+	})
+}
+
+func TestFileResource_Failure(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer ts.Close()
 
-	filePath := "./fail.txt"
-	defer os.Remove(filePath)
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: protoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+					resource "filedownloader_file" "file_failure" {
+						url = "%s"
+						filename = "failure.txt"
+					}`, ts.URL),
+				ExpectError: regexp.MustCompile(`failed to download file: 400 Bad Request`),
+			},
+		},
+	})
+}
 
-	err := downloadFile("GET", ts.URL, "fail.txt", nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to download file")
+var testLetters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func testRandString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = testLetters[rand.Intn(len(testLetters))]
+	}
+	return string(b)
 }

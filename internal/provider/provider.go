@@ -5,6 +5,9 @@ package provider
 
 import (
 	"context"
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -37,4 +40,19 @@ func (p *fileDownloaderProvider) Resources(_ context.Context) []func() resource.
 
 func (p *fileDownloaderProvider) DataSources(context.Context) []func() datasource.DataSource {
 	return nil
+}
+
+type fileChecksums struct {
+	sha1Hex   string
+	sha256Hex string
+}
+
+func genFileChecksums(data []byte) *fileChecksums {
+	sha1Sum := sha1.Sum(data)
+	sha256Sum := sha256.Sum256(data)
+
+	return &fileChecksums{
+		sha1Hex:   hex.EncodeToString(sha1Sum[:]),
+		sha256Hex: hex.EncodeToString(sha256Sum[:]),
+	}
 }
