@@ -9,5 +9,5 @@ import (
 )
 
 var protoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"filedownloader": providerserver.NewProtocol6WithError(New()),
+	"utilities": providerserver.NewProtocol6WithError(New("test")()),
 }

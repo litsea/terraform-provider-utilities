@@ -25,6 +25,7 @@ install: check-go
 update: ## Update go.mod
 	go get -u -v
 	go mod tidy -v
+	cd tools; go get -u -v; go mod tidy -v
 
 generate: ## Generate docs and copywrite headers
 	go generate ./...

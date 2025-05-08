@@ -11,5 +11,8 @@ project {
 
     # golangci-lint tooling configuration
     ".golangci.yml",
+
+    # goreleaser configuration
+    ".goreleaser.yml",
   ]
 }

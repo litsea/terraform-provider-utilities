@@ -1,6 +1,4 @@
-
-
-resource "filedownloader_file" "example" {
+resource "utilities_file_downloader" "example" {
   url      = "https://example.com/file.zip"
   filename = "${path.module}/file.zip"
 

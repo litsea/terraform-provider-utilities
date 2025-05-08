@@ -15,21 +15,22 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type fileResource struct{}
+type fileDownloaderResource struct{}
 
-func NewFileResource() resource.Resource {
-	return &fileResource{}
+func NewFileDownloaderResource() resource.Resource {
+	return &fileDownloaderResource{}
 }
 
-func (r *fileResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "filedownloader_file"
+func (r *fileDownloaderResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "utilities_file_downloader"
 }
 
-func (r *fileResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *fileDownloaderResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Resource to download a remote file via HTTP(S) using GET or POST, optionally with custom headers.",
 		Attributes: map[string]schema.Attribute{
@@ -43,10 +44,12 @@ func (r *fileResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 			"method": schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "HTTP method to use for the request (default: GET). Only 'GET' and 'POST' are allowed.",
 				Validators: []validator.String{
-					stringvalidator.OneOf("GET", "POST"),
+					stringvalidator.OneOf(http.MethodGet, http.MethodPost),
 				},
+				Default: stringdefault.StaticString(http.MethodGet),
 			},
 			"headers": schema.MapAttribute{
 				Optional:    true,
@@ -70,7 +73,7 @@ func (r *fileResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 	}
 }
 
-func (r *fileResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *fileDownloaderResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan fileResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -103,7 +106,7 @@ func (r *fileResource) Create(ctx context.Context, req resource.CreateRequest, r
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r *fileResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *fileDownloaderResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state fileResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -141,7 +144,7 @@ func (r *fileResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 }
 
-func (r *fileResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *fileDownloaderResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan fileResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -153,7 +156,7 @@ func (r *fileResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *fileResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *fileDownloaderResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var filename string
 	req.State.GetAttribute(ctx, path.Root("filename"), &filename)
 	os.Remove(filename)

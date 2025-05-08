@@ -1,18 +1,18 @@
 ---
-page_title: "filedownloader_file Resource - terraform-provider-filedownloader"
+page_title: "utilities_file_downloader Resource - terraform-provider-utilities"
 subcategory: ""
 description: |-
   Resource to download a remote file via HTTP(S) using GET or POST, optionally with custom headers.
 ---
 
-# filedownloader_file (Resource)
+# utilities_file_downloader (Resource)
 
 Resource to download a remote file via HTTP(S) using GET or POST, optionally with custom headers.
 
 ## Example Usage
 
 ```terraform
-resource "filedownloader_file" "example" {
+resource "utilities_file_downloader" "example" {
   url      = "https://example.com/file.zip"
   filename = "${path.module}/file.zip"
 

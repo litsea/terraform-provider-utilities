@@ -1,4 +1,4 @@
-module github.com/litsea/terraform-provider-filedownloader
+module github.com/litsea/terraform-provider-utilities
 
 go 1.24.0
 

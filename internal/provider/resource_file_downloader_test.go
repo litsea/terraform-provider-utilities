@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFileResource_GET(t *testing.T) {
+func TestFileDownloaderResource_GET(t *testing.T) {
 	want := []byte(testRandString(32))
 	// Setup mock server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,16 +42,16 @@ func TestFileResource_GET(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: fmt.Sprintf(`
-					resource "filedownloader_file" "file_test" {
+					resource "utilities_file_downloader" "file_test" {
 						url = "%s"
 						filename = "test_output.txt"
 					}`, ts.URL),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("filedownloader_file.file_test", "id", sha1Hex),
-					resource.TestCheckResourceAttr("filedownloader_file.file_test", "sha1", sha1Hex),
-					resource.TestCheckResourceAttr("filedownloader_file.file_test", "sha256", sha256Hex),
-					resource.TestCheckResourceAttr("filedownloader_file.file_test", "filename", "test_output.txt"),
-					resource.TestCheckResourceAttrWith("filedownloader_file.file_test", "filename", func(value string) error {
+					resource.TestCheckResourceAttr("utilities_file_downloader.file_test", "id", sha1Hex),
+					resource.TestCheckResourceAttr("utilities_file_downloader.file_test", "sha1", sha1Hex),
+					resource.TestCheckResourceAttr("utilities_file_downloader.file_test", "sha256", sha256Hex),
+					resource.TestCheckResourceAttr("utilities_file_downloader.file_test", "filename", "test_output.txt"),
+					resource.TestCheckResourceAttrWith("utilities_file_downloader.file_test", "filename", func(value string) error {
 						got, err := os.ReadFile(value)
 						if err != nil {
 							return err
@@ -63,7 +63,7 @@ func TestFileResource_GET(t *testing.T) {
 			},
 			{
 				Config: fmt.Sprintf(`
-					resource "filedownloader_file" "file_test2" {
+					resource "utilities_file_downloader" "file_test2" {
 						url = "%s"
 						method = "POST"
 						filename = "test_output2.txt"
@@ -75,7 +75,7 @@ func TestFileResource_GET(t *testing.T) {
 	})
 }
 
-func TestFileResource_POST_WithHeaders(t *testing.T) {
+func TestFileDownloaderResource_POST_WithHeaders(t *testing.T) {
 	want := []byte(testRandString(32))
 	// Setup mock server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +103,7 @@ func TestFileResource_POST_WithHeaders(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: fmt.Sprintf(`
-					resource "filedownloader_file" "file_post_test" {
+					resource "utilities_file_downloader" "file_post_test" {
 						url = "%s"
 						method = "POST"
 						filename = "test_post_output.txt"
@@ -112,11 +112,11 @@ func TestFileResource_POST_WithHeaders(t *testing.T) {
 						}
 					}`, ts.URL),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("filedownloader_file.file_post_test", "id", sha1Hex),
-					resource.TestCheckResourceAttr("filedownloader_file.file_post_test", "sha1", sha1Hex),
-					resource.TestCheckResourceAttr("filedownloader_file.file_post_test", "sha256", sha256Hex),
-					resource.TestCheckResourceAttr("filedownloader_file.file_post_test", "filename", "test_post_output.txt"),
-					resource.TestCheckResourceAttrWith("filedownloader_file.file_post_test", "filename", func(value string) error {
+					resource.TestCheckResourceAttr("utilities_file_downloader.file_post_test", "id", sha1Hex),
+					resource.TestCheckResourceAttr("utilities_file_downloader.file_post_test", "sha1", sha1Hex),
+					resource.TestCheckResourceAttr("utilities_file_downloader.file_post_test", "sha256", sha256Hex),
+					resource.TestCheckResourceAttr("utilities_file_downloader.file_post_test", "filename", "test_post_output.txt"),
+					resource.TestCheckResourceAttrWith("utilities_file_downloader.file_post_test", "filename", func(value string) error {
 						got, err := os.ReadFile(value)
 						if err != nil {
 							return err
@@ -128,7 +128,7 @@ func TestFileResource_POST_WithHeaders(t *testing.T) {
 			},
 			{
 				Config: fmt.Sprintf(`
-					resource "filedownloader_file" "file_post_test2" {
+					resource "utilities_file_downloader" "file_post_test2" {
 						url = "%s"
 						method = "POST"
 						filename = "test_post_output2.txt"
@@ -142,7 +142,7 @@ func TestFileResource_POST_WithHeaders(t *testing.T) {
 	})
 }
 
-func TestFileResource_Failure(t *testing.T) {
+func TestFileDownloaderResource_Failure(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
@@ -153,7 +153,7 @@ func TestFileResource_Failure(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: fmt.Sprintf(`
-					resource "filedownloader_file" "file_failure" {
+					resource "utilities_file_downloader" "file_failure" {
 						url = "%s"
 						filename = "failure.txt"
 					}`, ts.URL),
