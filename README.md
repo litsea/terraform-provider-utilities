@@ -1,20 +1,20 @@
-# terraform-provider-filedownloader
+# terraform-provider-utilities
 
-A simple Terraform provider to download files from a given URL with optional HTTP headers.
+The Utility provider offers various utility functions and tools for use in Terraform configurations. This provider does not require configuration.
 
 ## Example Usage
 
 ```hcl
 terraform {
   required_providers {
-    filedownloader = {
-      source  = "litsea/filedownloader"
+    utilities = {
+      source  = "litsea/utilities"
       version = "~> 0.1"
     }
   }
 }
 
-resource "filedownloader_file" "example" {
+resource "utilities_file_downloader" "example" {
   url      = "https://example.com/file.zip"
   filename = "${path.module}/file.zip"
 
@@ -43,7 +43,7 @@ provider_installation {
   # This disables versioning and checksum validation of the provider
   # and forces Terraform to look for the provider in a given directory.
   dev_overrides {
-    "registry.terraform.io/litsea/filedownloader" = "X:/path/to/terraform-provider-filedownloader"
+    "registry.terraform.io/litsea/utilities" = "X:/path/to/terraform-provider-utilities"
   }
 
   # For all other providers, install them directly from their origin provider

@@ -11,22 +11,35 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
-func New() provider.Provider {
-	return &fileDownloaderProvider{}
-}
-
 var _ provider.Provider = (*fileDownloaderProvider)(nil)
 
-type fileDownloaderProvider struct{}
-
-func (p *fileDownloaderProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "filedownloader"
+type fileDownloaderProvider struct {
+	version string
 }
 
-func (p *fileDownloaderProvider) Schema(_ context.Context, _ provider.SchemaRequest, _ *provider.SchemaResponse) {
+func New(v string) func() provider.Provider {
+	return func() provider.Provider {
+		return &fileDownloaderProvider{
+			version: v,
+		}
+	}
+}
+
+func (p *fileDownloaderProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "utilities"
+	resp.Version = p.version
+}
+
+func (p *fileDownloaderProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: `
+The Utility provider offers various utility functions and tools for use in Terraform configurations. This provider does not require configuration.
+`,
+	}
 }
 
 func (p *fileDownloaderProvider) Configure(_ context.Context, _ provider.ConfigureRequest, _ *provider.ConfigureResponse) {
@@ -34,7 +47,7 @@ func (p *fileDownloaderProvider) Configure(_ context.Context, _ provider.Configu
 
 func (p *fileDownloaderProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewFileResource,
+		NewFileDownloaderResource,
 	}
 }
 
