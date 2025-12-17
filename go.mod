@@ -2,7 +2,7 @@ module github.com/litsea/terraform-provider-utilities
 
 go 1.24.0
 
-require github.com/hashicorp/terraform-plugin-framework v1.16.1
+require github.com/hashicorp/terraform-plugin-framework v1.17.0
 
 require (
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
