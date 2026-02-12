@@ -32,6 +32,7 @@ resource "utilities_file_downloader" "example" {
 
 ### Optional
 
+- `force_download` (Boolean) Force download even if the file url has not changed.
 - `headers` (Map of String, Sensitive) Map of custom HTTP headers to include in the request. The map key is the header name, and the value is the header content.
 - `method` (String) HTTP method to use for the request (default: GET). Only 'GET' and 'POST' are allowed.
 
