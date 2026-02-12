@@ -1,4 +1,4 @@
-// Copyright (c) Litsea
+// Copyright Litsea 2025, 2026
 // SPDX-License-Identifier: MIT
 
 package provider
